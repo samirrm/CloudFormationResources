@@ -1,0 +1,286 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "S3 bucket for ",
+  "Parameters": {
+    "EnvDeploy": {
+      "Description": "Environment where the CloudFront will be deployed",
+      "Type": "String",
+      "AllowedValues": [
+        "DEV",
+        "HOM",
+        "PROD"
+      ],
+      "Default": "DEV"
+    }
+  },
+  "Mappings": {
+    "Environments": {
+      "DEV": {
+        "uri": "dev",
+        "certificateArn": "arn:aws:acm:us-east-1:0000000000:certificate/<code-id>"
+      },
+      "HOM": {
+        "uri": "hom",
+        "certificateArn": "arn:aws:acm:us-east-1:0000000000:certificate/<code-id>"
+      },
+      "PROD": {
+        "uri": "prod",
+        "certificateArn": "arn:aws:acm:us-east-1:00000000:certificate/<code-id>"
+      }
+    }
+  },
+  "Resources": {
+    "S3Bucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketName": {
+          "Fn::Sub": "<bucket-name-1>-${AWS::AccountId}"
+        },
+        "WebsiteConfiguration": {
+          "IndexDocument": "index.html",
+          "ErrorDocument": "index.html"
+        },
+        "OwnershipControls": {
+          "Rules": [
+            {
+              "ObjectOwnership": "BucketOwnerEnforced"
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "<Value>"
+          },
+          {
+            "Key": "Owner",
+            "Value": "<Value>"
+          },
+          {
+            "Key": "product",
+            "Value": "<Value>"
+          },
+          {
+            "Key": "squad",
+            "Value": "<Value>"
+          },
+          {
+            "Key": "cost",
+            "Value": "<Value>"
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "EnvDeploy"
+            }
+          }
+        ]
+      }
+    },
+    "CloudFrontOriginAccessControl": {
+      "Type": "AWS::CloudFront::OriginAccessControl",
+      "Properties": {
+        "OriginAccessControlConfig": {
+          "Name": {
+            "Fn::Join": [
+              "",
+              [
+                "<bucket-name-1>-",
+                {
+                  "Fn::FindInMap": [
+                    "Environments",
+                    {
+                      "Ref": "EnvDeploy"
+                    },
+                    "uri"
+                  ]
+                }
+              ]
+            ]
+          },
+          "Description": "Origin Access Control para o CloudFront acessar S3 bucket <bucket-name-1>.",
+          "SigningProtocol": "sigv4",
+          "SigningBehavior": "always",
+          "OriginAccessControlOriginType": "s3"
+        }
+      }
+    },
+    "CloudFrontDistribution": {
+      "Type": "AWS::CloudFront::Distribution",
+      "DependsOn": "S3Bucket",
+      "Properties": {
+        "DistributionConfig": {
+          "Comment": "Cloudfront for Crm Lp Gold Customer",
+          "Enabled": true,
+          "Aliases": [
+            {
+              "Fn::Join": [
+                "",
+                [
+                  "<bucket-name-1>-",
+                  {
+                    "Fn::FindInMap": [
+                      "Environments",
+                      {
+                        "Ref": "EnvDeploy"
+                      },
+                      "uri"
+                    ]
+                  },
+                  ".apipmenos.com"
+                ]
+              ]
+            }
+          ],
+          "Origins": [
+            {
+              "Id": "S3Origin",
+              "DomainName": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Fn::Sub": "<bucket-name-1>-${AWS::AccountId}"
+                    },
+                    ".s3.amazonaws.com"
+                  ]
+                ]
+              },
+              "S3OriginConfig": {},
+              "OriginAccessControlId": {
+                "Ref": "CloudFrontOriginAccessControl"
+              }
+            }
+          ],
+          "DefaultCacheBehavior": {
+            "TargetOriginId": "S3Origin",
+            "ViewerProtocolPolicy": "redirect-to-https",
+            "AllowedMethods": [
+              "GET",
+              "HEAD"
+            ],
+            "CachedMethods": [
+              "GET",
+              "HEAD"
+            ],
+            "ForwardedValues": {
+              "QueryString": false,
+              "Cookies": {
+                "Forward": "none"
+              }
+            }
+          },
+          "CustomErrorResponses": [
+            {
+              "ErrorCode": 403,
+              "ResponseCode": 200,
+              "ResponsePagePath": "/index.html"
+            },
+            {
+              "ErrorCode": 404,
+              "ResponseCode": 200,
+              "ResponsePagePath": "/index.html"
+            }
+          ],
+          "ViewerCertificate": {
+            "AcmCertificateArn": {
+              "Fn::FindInMap": [
+                "Environments",
+                {
+                  "Ref": "EnvDeploy"
+                },
+                "certificateArn"
+              ]
+            },
+            "SslSupportMethod": "sni-only",
+            "MinimumProtocolVersion": "TLSv1.2_2021"
+          },
+          "HttpVersion": "http2",
+          "DefaultRootObject": "index.html",
+          "IPV6Enabled": false,
+          "PriceClass": "PriceClass_100"
+        },
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "<Value>"
+          },
+          {
+            "Key": "Owner",
+            "Value": "<Value>"
+          },
+          {
+            "Key": "product",
+            "Value": "<Value>"
+          },
+          {
+            "Key": "squad",
+            "Value": "<Value>"
+          },
+          {
+            "Key": "cost",
+            "Value": "<Value>"
+          },
+          {
+            "Key": "Environment",
+            "Value": {
+              "Ref": "EnvDeploy"
+            }
+          }
+        ]
+      }
+    },
+    "S3BucketPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "S3Bucket"
+        },
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "AllowCloudFrontServicePrincipalReadOnly",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "cloudfront.amazonaws.com"
+              },
+              "Action": "s3:GetObject",
+              "Resource": {
+                "Fn::Sub": "arn:aws:s3:::<bucket-name-1>-${AWS::AccountId}/*"
+              },
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceArn": {
+                    "Fn::Sub": [
+                      "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistributionId}",
+                      {
+                        "CloudFrontDistributionId": {
+                          "Fn::GetAtt": [
+                            "CloudFrontDistribution",
+                            "Id"
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "CloudFrontDistributionDomainName": {
+      "Value": {
+        "Fn::GetAtt": [
+          "CloudFrontDistribution",
+          "DomainName"
+        ]
+      },
+      "Description": "Domain name of the CloudFront distribution"
+    }
+  }
+}
